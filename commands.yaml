@@ -1,0 +1,29 @@
+# Remote PC Controller Commands Configuration
+# Each command has:
+#   id: Unique identifier for the command
+#   name: Display name
+#   command: Shell command to execute
+#   focus_app: (Optional) Window title to focus after execution (Windows only)
+
+- id: open_notepad
+  name: Open Notepad
+  command: notepad.exe
+  focus_app: Notepad
+
+- id: open_calculator
+  name: Open Calculator
+  command: calc.exe
+  focus_app: Calculator
+
+- id: lock_screen
+  name: Lock Screen
+  command: rundll32.exe user32.dll,LockWorkStation
+
+- id: volume_up
+  name: Volume Up
+  command: powershell.exe -Command "(New-Object -ComObject Shell.Application).ApplicationVolume.IncrementVolume(5)"
+
+- id: volume_down
+  name: Volume Down
+  command: powershell.exe -Command "(New-Object -ComObject Shell.Application).ApplicationVolume.IncrementVolume(-5)"
+
