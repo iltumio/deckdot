@@ -1,193 +1,117 @@
-# Deck - Remote PC Controller
+# Deckdot - Remote PC Controller
 
-A desktop application built with Tauri, Svelte, and Axum that allows you to control your PC remotely from your phone via HTTP commands.
+**Version 0.1.0**
+
+A desktop application that allows you to control your PC remotely from your phone via a beautiful web interface. Built with Tauri and Svelte.
+
+## What is DeckDot?
+
+DeckDot is a remote control application that runs on your desktop computer and provides a web interface accessible from any device on your local network. You can execute commands, control volume, open applications, and more—all from your phone or tablet.
 
 ## Features
 
-- **Desktop Management UI**: Configure server settings, manage commands, and control the server
-- **HTTP Command Server**: Lightweight Axum server that listens on your local network
-- **Simple Access Code**: Single auto-generated access code for authentication (no username needed)
-- **One-Click Sharing**: Share button copies a link with embedded auth code for easy phone access
-- **Custom Commands**: Define custom shell commands via YAML configuration
-- **Windows Focus Support**: Automatically focus specific applications after command execution (Windows only)
-- **Phone-Accessible UI**: Beautiful Svelte mobile web app served from the Rust backend
+- **Remote Control**: Control your PC from any device on your local network
+- **Multiple Command Types**:
+  - Shell commands (execute any terminal command)
+  - Volume control (adjust system volume up/down or mute)
+  - Open directories (open folders in your file manager)
+  - Focus applications (bring apps to the foreground)
+  - Send keybinds (simulate keyboard shortcuts)
+- **Simple Authentication**: Auto-generated access code for secure access
+- **Beautiful Mobile UI**: Responsive grid interface optimized for phones and tablets
+- **Customizable Grid**: Choose 2, 4, 6, or 8 columns for command display
+- **Persistent Storage**: All commands and settings saved automatically
+- **One-Click Sharing**: Share button generates a link with embedded access code
 
-## Tech Stack
+## How It Works
 
-- **Frontend**: Svelte 5 + Vite + Tailwind CSS v4
-- **UI Components**: shadcn-svelte + Bits UI + Lucide Svelte
-- **Desktop Wrapper**: Tauri 2.0
-- **Backend Server**: Axum (embedded in Rust)
-- **Mobile Web UI**: Svelte (same components as desktop)
-- **Configuration**: YAML files for commands
+1. **Install & Launch**: Install Deck on your desktop computer and launch the application
+2. **Configure**: Set up your server port and access code in the Settings tab
+3. **Add Commands**: Create custom commands in the Commands tab—just enter a name and configure the action
+4. **Start Server**: Click "Start Server" to begin accepting remote connections
+5. **Access Remotely**: Open the shared link on your phone or tablet to access the control interface
+6. **Execute Commands**: Tap any command button to execute it instantly
 
-## Project Structure
+## Command Types
 
-```
-deck/
-├── src-tauri/          # Rust backend (Tauri + Axum)
-│   ├── src/
-│   │   ├── main.rs     # Tauri app entry, command bridge
-│   │   ├── config.rs   # Settings management
-│   │   ├── commands.rs # Command configuration loading
-│   │   ├── server.rs   # Axum HTTP server + static file serving
-│   │   └── windows_focus.rs  # Windows window focus logic
-│   └── Cargo.toml
-├── src/                # Svelte desktop frontend
-│   ├── App.svelte
-│   ├── Settings.svelte
-│   ├── Commands.svelte
-│   ├── ServerControl.svelte
-│   └── lib/            # Shared UI components (shadcn-svelte)
-├── mobile/             # Svelte mobile web app (reuses src/lib)
-│   ├── App.svelte      # Mobile-optimized command interface
-│   ├── main.js
-│   └── app.css
-├── mobile-dist/        # Built mobile web app (served by Rust)
-├── commands.yaml       # Default command configuration
-└── package.json
-```
+### Shell Commands
+
+Execute any terminal command. Perfect for launching applications, running scripts, or system operations.
+
+### Volume Control
+
+Adjust your system volume by a specified percentage or toggle mute. Works on macOS, Windows, and Linux.
+
+### Open Directory
+
+Open any folder in your file manager. Use the browse button to select a directory visually.
+
+### Focus Application
+
+Bring any running application to the foreground. Great for switching between apps remotely.
+
+### Send Keybind
+
+Simulate keyboard shortcuts like `Cmd+Space` or `Ctrl+Shift+T`.
+**Note**: On macOS, this requires accessibility permissions. The app will guide you through granting them.
 
 ## Getting Started
 
-### Prerequisites
-
-- Rust (latest stable)
-- Node.js and npm
-- System dependencies for Tauri (see [Tauri docs](https://tauri.app/v1/guides/getting-started/prerequisites))
-
 ### Installation
 
-1. Install dependencies:
+1. Download the latest release for your platform
+2. Install and launch the application
+3. Configure your settings (port and access code)
+4. Add your first command
+5. Start the server and share the access link
 
-```bash
-npm install
-```
+### First Time Setup
 
-2. Build the application:
+1. **Settings Tab**:
 
-```bash
-npm run tauri build
-```
+   - Choose a port (default: 7776)
+   - Your access code is auto-generated, but you can customize it
+   - Click "Regenerate Code" to create a new random code
 
-Or run in development mode:
+2. **Commands Tab**:
 
-```bash
-npm run tauri dev
-```
+   - Click "Add Command" to create a new command
+   - Enter a name (the ID is auto-generated)
+   - Select the command type
+   - Configure the specific settings for that type
+   - Save your command
 
-## Usage
+3. **Server Tab**:
+   - Click "Start Server" to begin accepting connections
+   - Use "Share Remote Access Link" to get a URL with your access code
+   - Open the link on your phone or tablet
 
-### Configuration
+### Using the Mobile Interface
 
-1. **Server Settings**: Configure the port in the Settings tab
-2. **Access Code**: A random access code is auto-generated on first launch. You can:
-   - View/copy the current code
-   - Regenerate a new random code
-   - Set a custom code
-3. **Commands**: Add/edit commands in the Commands tab. Each command has:
-   - **ID**: Unique identifier
-   - **Name**: Display name
-   - **Command**: Shell command to execute
-   - **Focus App** (optional): Window title to focus after execution (Windows only)
+- **Access Code**: Enter the access code to authenticate
+- **Command Grid**: Commands are displayed in a responsive grid
+- **Column Selection**: Choose 2, 4, 6, or 8 columns (or use auto-responsive)
+- **Execute**: Tap any command button to execute it
+- **Refresh**: Use the refresh button to reload commands
 
-### Starting the Server
+## Security
 
-1. Configure your settings in the Settings tab
-2. Click "Start Server" in the Server Control tab
-3. The server will listen on `0.0.0.0:{port}` for network access
-4. Click **"Share Remote Access Link"** to copy a URL with embedded auth code
-5. Open the link on your phone — it will auto-fill the access code
+- All commands require authentication via access code
+- Server only accepts connections from devices with the correct access code
+- Commands execute with your user permissions (no elevation)
+- Access code can be regenerated at any time
+- **Important**: Configure your firewall to allow connections on the chosen port
 
-### Command Execution
+## Requirements
 
-Send POST requests to `/execute` endpoint with your access code:
-
-```bash
-# Using query parameter (recommended)
-curl -X POST "http://[pc-ip]:7776/execute?code=YOUR_CODE" \
-  -H "Content-Type: application/json" \
-  -d '{"id": "open_notepad"}'
-
-# Or using Bearer token header
-curl -X POST http://[pc-ip]:7776/execute \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer YOUR_CODE" \
-  -d '{"id": "open_notepad"}'
-```
-
-### Health Check
-
-Check if the server is running:
-
-```bash
-curl http://[pc-ip]:7776/health
-```
-
-## Security Considerations
-
-- The management UI (Tauri webview) only binds to `127.0.0.1`
-- The command server binds to `0.0.0.0` for network access
-- Access code authentication is enforced on all command execution routes
-- **Regenerate code** if you suspect it's been compromised
-- **Important**: You must manually configure your firewall to allow connections on the chosen port
-- Commands execute with the user's permissions (no elevation)
-
-## Development
-
-### Desktop Frontend Development
-
-```bash
-npm run dev
-```
-
-### Mobile Web App Development
-
-```bash
-npm run dev:mobile
-```
-
-This starts a dev server at `http://localhost:1421` for the mobile web app.
-
-### Backend Development
-
-The Rust backend is compiled automatically when running `npm run tauri dev`.
-
-### Building for Production
-
-```bash
-# Build both desktop and mobile apps
-npm run build:all
-
-# Then build the Tauri application
-npm run tauri build
-```
-
-The built application will be in `src-tauri/target/release/`.
-
-### Build Scripts
-
-- `npm run dev` - Start desktop Vite dev server
-- `npm run dev:mobile` - Start mobile web app dev server
-- `npm run build` - Build desktop frontend
-- `npm run build:mobile` - Build mobile web app to `mobile-dist/`
-- `npm run build:all` - Build both desktop and mobile
-
-## Command Configuration
-
-Commands are stored in `commands.yaml` in the app data directory. Example:
-
-```yaml
-- id: open_notepad
-  name: Open Notepad
-  command: notepad.exe
-  focus_app: Notepad
-
-- id: lock_screen
-  name: Lock Screen
-  command: rundll32.exe user32.dll,LockWorkStation
-```
+- **Desktop**: Windows, macOS, or Linux
+- **Network**: Both devices must be on the same local network
+- **macOS Keybinds**: Requires accessibility permission (the app will guide you)
 
 ## License
 
-[Your License Here]
+MIT License
+
+## Support
+
+For issues, questions, or contributions, please visit the project repository.
