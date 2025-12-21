@@ -72,8 +72,51 @@
   let isRecordingKeybind = false;
   let keybindInputRef = null;
   
+  // Accessibility permission state
+  let accessibilityPermissionGranted = true; // Assume true until checked
+  let showAccessibilityPrompt = false;
+  
   // Delete confirmation state
   let confirmDeleteId = null;
+
+  // Check accessibility permission when switching to keybind type
+  async function checkAccessibilityOnKeybindSelect(newType) {
+    if (newType === 'keybind') {
+      try {
+        accessibilityPermissionGranted = await invoke('check_accessibility_permission');
+        if (!accessibilityPermissionGranted) {
+          showAccessibilityPrompt = true;
+        }
+      } catch (error) {
+        console.error('Failed to check accessibility permission:', error);
+        accessibilityPermissionGranted = true; // Assume OK on error
+      }
+    }
+    formCommandType = newType;
+  }
+
+  async function requestAccessibilityPermission() {
+    try {
+      await invoke('request_accessibility_permission');
+      showMessage('Please grant accessibility permission in System Preferences, then restart the app.', 'success');
+    } catch (error) {
+      showMessage('Failed to open System Preferences: ' + error, 'error');
+    }
+  }
+
+  async function recheckAccessibilityPermission() {
+    try {
+      accessibilityPermissionGranted = await invoke('check_accessibility_permission');
+      if (accessibilityPermissionGranted) {
+        showAccessibilityPrompt = false;
+        showMessage('Accessibility permission granted!', 'success');
+      } else {
+        showMessage('Permission not yet granted. Please enable it in System Preferences.', 'error');
+      }
+    } catch (error) {
+      console.error('Failed to check accessibility permission:', error);
+    }
+  }
 
   function startRecordingKeybind() {
     isRecordingKeybind = true;
@@ -279,6 +322,7 @@
         break;
       case 'keybind':
         if (!formKeybind) return 'Keybind is required';
+        if (!accessibilityPermissionGranted) return 'Accessibility permission is required for keybind commands';
         break;
     }
 
@@ -475,7 +519,8 @@
           <Label for="form-type" class="text-slate-300 font-bold">Command Type</Label>
           <Select
             id="form-type"
-            bind:value={formCommandType}
+            value={formCommandType}
+            onchange={(e) => checkAccessibilityOnKeybindSelect(e.target.value)}
             class="bg-white/5 border-white/10 text-white h-11 rounded-xl font-bold"
           >
             {#each COMMAND_TYPES as type}
@@ -484,6 +529,36 @@
           </Select>
           <p class="text-xs text-slate-400">{currentTypeInfo.description}</p>
         </div>
+
+        <!-- Accessibility Permission Warning for Keybind -->
+        {#if formCommandType === 'keybind' && showAccessibilityPrompt}
+          <div class="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30">
+            <div class="flex items-start gap-3">
+              <AlertCircle class="w-5 h-5 text-amber-400 mt-0.5 shrink-0" />
+              <div class="flex-1">
+                <h4 class="text-sm font-bold text-amber-200 mb-1">Accessibility Permission Required</h4>
+                <p class="text-xs text-amber-300/80 mb-3">
+                  Sending keyboard shortcuts requires accessibility permission. Please grant permission in System Preferences.
+                </p>
+                <div class="flex gap-2">
+                  <Button 
+                    onclick={requestAccessibilityPermission}
+                    class="bg-amber-600 hover:bg-amber-700 text-white h-9 px-4 rounded-lg font-bold text-sm"
+                  >
+                    Open System Preferences
+                  </Button>
+                  <Button 
+                    onclick={recheckAccessibilityPermission}
+                    variant="ghost"
+                    class="text-amber-300 hover:text-white hover:bg-white/10 h-9 px-4 rounded-lg font-bold text-sm"
+                  >
+                    I've Granted Permission
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        {/if}
 
         <!-- Type-specific fields -->
         {#if formCommandType === 'shell'}
@@ -646,9 +721,19 @@
           <X class="w-4 h-4 mr-2" />
           Cancel
         </Button>
-        <Button onclick={saveCommand} disabled={loading} class="bg-blue-600 hover:bg-blue-700 text-white h-11 px-8 rounded-xl font-bold shadow-lg">
+        <Button 
+          onclick={saveCommand} 
+          disabled={loading || (formCommandType === 'keybind' && !accessibilityPermissionGranted)} 
+          class="bg-blue-600 hover:bg-blue-700 text-white h-11 px-8 rounded-xl font-bold shadow-lg disabled:bg-slate-600 disabled:cursor-not-allowed"
+        >
           <Save class="w-4 h-4 mr-2" />
-          {loading ? 'Saving...' : 'Save Command'}
+          {#if loading}
+            Saving...
+          {:else if formCommandType === 'keybind' && !accessibilityPermissionGranted}
+            Permission Required
+          {:else}
+            Save Command
+          {/if}
         </Button>
       </Card.Footer>
     </Card.Root>

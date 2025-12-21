@@ -542,6 +542,48 @@ fn convert_keybind_to_xdotool(keybind: &str) -> String {
     result.join("+")
 }
 
+/// Check if accessibility permissions are granted (required for keybinds on macOS)
+pub fn check_accessibility_permission() -> bool {
+    #[cfg(target_os = "macos")]
+    {
+        // Use AXIsProcessTrusted to check accessibility permission
+        // We can check this via a simple AppleScript that would fail without permission
+        let output = Command::new("osascript")
+            .args(["-e", r#"tell application "System Events" to return true"#])
+            .output();
+        
+        match output {
+            Ok(output) => output.status.success(),
+            Err(_) => false,
+        }
+    }
+    
+    #[cfg(not(target_os = "macos"))]
+    {
+        // On Windows and Linux, permissions are typically not required
+        true
+    }
+}
+
+/// Request/prompt for accessibility permissions on macOS
+pub fn request_accessibility_permission() -> bool {
+    #[cfg(target_os = "macos")]
+    {
+        // Open System Preferences to the Accessibility pane
+        let _ = Command::new("open")
+            .args(["x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility"])
+            .spawn();
+        
+        // Return current state (user will need to manually grant and restart)
+        check_accessibility_permission()
+    }
+    
+    #[cfg(not(target_os = "macos"))]
+    {
+        true
+    }
+}
+
 /// Get list of running applications
 pub fn get_running_applications() -> Vec<String> {
     let mut apps = Vec::new();

@@ -199,6 +199,18 @@ fn get_running_applications() -> Vec<String> {
     system_commands::get_running_applications()
 }
 
+/// Check if accessibility permissions are granted (required for keybind commands)
+#[tauri::command]
+fn check_accessibility_permission() -> bool {
+    system_commands::check_accessibility_permission()
+}
+
+/// Request accessibility permissions (opens System Preferences on macOS)
+#[tauri::command]
+fn request_accessibility_permission() -> bool {
+    system_commands::request_accessibility_permission()
+}
+
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
@@ -271,6 +283,8 @@ fn main() {
             get_local_ips,
             get_running_applications,
             regenerate_auth_code,
+            check_accessibility_permission,
+            request_accessibility_permission,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
