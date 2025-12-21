@@ -6,21 +6,22 @@
   import { Input } from "$lib/components/ui/input";
   import { Label } from "$lib/components/ui/label";
   import * as Alert from "$lib/components/ui/alert";
-  import { Settings as SettingsIcon, Shield, Hash, User, Lock, Save, CheckCircle2, AlertCircle, Network } from "lucide-svelte";
+  import { Settings as SettingsIcon, Shield, Hash, Lock, Save, CheckCircle2, AlertCircle, Network, RefreshCw, Copy, Check, Eye, EyeOff } from "lucide-svelte";
 
   let port = 8080;
-  let username = 'admin';
-  let password = '';
+  let authCode = '';
   let loading = false;
+  let regenerating = false;
   let message = '';
   let messageType = '';
+  let copied = false;
+  let showCode = false;
 
   onMount(async () => {
     try {
       const settings = await invoke('get_settings');
       port = settings.port;
-      username = settings.username;
-      password = settings.password;
+      authCode = settings.auth_code;
     } catch (error) {
       showMessage('Failed to load settings: ' + error, 'error');
     }
@@ -34,8 +35,7 @@
       await invoke('save_settings', {
         settings: {
           port: parseInt(port.toString()),
-          username,
-          password
+          auth_code: authCode
         }
       });
       showMessage('Configuration updated successfully', 'success');
@@ -46,6 +46,29 @@
     }
   }
 
+  async function regenerateCode() {
+    regenerating = true;
+    try {
+      const newCode = await invoke('regenerate_auth_code');
+      authCode = newCode;
+      showMessage('New access code generated', 'success');
+    } catch (error) {
+      showMessage('Failed to regenerate code: ' + error, 'error');
+    } finally {
+      regenerating = false;
+    }
+  }
+
+  async function copyCode() {
+    try {
+      await navigator.clipboard.writeText(authCode);
+      copied = true;
+      setTimeout(() => { copied = false; }, 2000);
+    } catch (error) {
+      showMessage('Failed to copy', 'error');
+    }
+  }
+
   function showMessage(msg, type) {
     message = msg;
     messageType = type;
@@ -53,12 +76,17 @@
       message = '';
     }, 3000);
   }
+
+  function getMaskedCode(code) {
+    if (!code) return '';
+    return '•'.repeat(code.length);
+  }
 </script>
 
 <div class="space-y-6">
   {#if message}
-    <div class="animate-in fade-in zoom-in duration-300">
-      <Alert.Root variant={messageType === 'error' ? 'destructive' : 'default'} class="glass border-white/10 text-white">
+    <div class="fixed top-4 right-4 z-50 max-w-sm animate-in fade-in slide-in-from-top-4 duration-300">
+      <Alert.Root variant={messageType === 'error' ? 'destructive' : 'default'} class="glass border-white/10 text-white shadow-2xl">
         {#if messageType === 'error'}
           <AlertCircle class="h-4 w-4 text-red-400" />
         {:else}
@@ -107,37 +135,75 @@
       <div class="space-y-4">
         <h3 class="text-[11px] font-black text-purple-400 uppercase tracking-[0.2em] flex items-center gap-2">
           <Shield class="w-4 h-4" />
-          Authentication
+          Access Code
         </h3>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div class="grid gap-2">
-            <Label for="username" class="text-slate-300 font-bold">Username</Label>
-            <div class="relative">
-              <User class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-              <Input
-                id="username"
-                type="text"
-                bind:value={username}
-                class="bg-white/5 border-white/10 text-white pl-10 h-12 rounded-xl focus:ring-blue-500 focus:border-blue-500 font-bold"
-                placeholder="admin"
-              />
+        
+        <div class="p-4 rounded-xl bg-gradient-to-br from-purple-500/10 to-blue-500/10 border border-purple-500/20">
+          <div class="flex items-center justify-between mb-3">
+            <Label class="text-slate-300 font-bold text-sm">Current Code</Label>
+            <div class="flex items-center gap-1">
+              <Button
+                variant="ghost"
+                size="sm"
+                onclick={() => showCode = !showCode}
+                class="h-8 w-8 p-0 text-slate-400 hover:text-white hover:bg-white/10"
+              >
+                {#if showCode}
+                  <EyeOff class="w-4 h-4" />
+                {:else}
+                  <Eye class="w-4 h-4" />
+                {/if}
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onclick={copyCode}
+                class="h-8 w-8 p-0 text-slate-400 hover:text-white hover:bg-white/10"
+              >
+                {#if copied}
+                  <Check class="w-4 h-4 text-green-400" />
+                {:else}
+                  <Copy class="w-4 h-4" />
+                {/if}
+              </Button>
             </div>
           </div>
-          <div class="grid gap-2">
-            <Label for="password" class="text-slate-300 font-bold">Password</Label>
-            <div class="relative">
-              <Lock class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-              <Input
-                id="password"
-                type="password"
-                bind:value={password}
-                class="bg-white/5 border-white/10 text-white pl-10 h-12 rounded-xl focus:ring-blue-500 focus:border-blue-500 font-bold"
-                placeholder="Secure password"
-              />
+          
+          <div class="flex items-center gap-3">
+            <div class="flex-1 bg-black/30 rounded-xl p-4 border border-white/10">
+              <code class="text-2xl font-mono font-bold tracking-[0.3em] text-white select-all">
+                {showCode ? authCode : getMaskedCode(authCode)}
+              </code>
             </div>
+            <Button
+              onclick={regenerateCode}
+              disabled={regenerating}
+              variant="outline"
+              class="h-14 px-4 border-purple-500/30 bg-purple-500/10 hover:bg-purple-500/20 text-purple-300 hover:text-white rounded-xl"
+            >
+              <RefreshCw class={`w-5 h-5 ${regenerating ? 'animate-spin' : ''}`} />
+            </Button>
           </div>
+          <p class="text-xs text-slate-500 font-medium mt-3">
+            This code is required to access the remote control from your phone.
+          </p>
         </div>
-        <p class="text-xs text-slate-500 font-medium">Used for Basic Auth when connecting from a remote device.</p>
+
+        <div class="grid gap-2">
+          <Label for="customCode" class="text-slate-300 font-bold">Set Custom Code</Label>
+          <div class="relative">
+            <Lock class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+            <Input
+              id="customCode"
+              type="text"
+              bind:value={authCode}
+              class="bg-white/5 border-white/10 text-white pl-10 h-12 rounded-xl focus:ring-blue-500 focus:border-blue-500 font-bold font-mono uppercase tracking-widest"
+              placeholder="Enter custom code"
+              maxlength="20"
+            />
+          </div>
+          <p class="text-xs text-slate-500 font-medium">Leave as-is to use the auto-generated code, or enter your own.</p>
+        </div>
       </div>
     </Card.Content>
 
@@ -157,10 +223,10 @@
     <div class="flex items-start gap-4">
       <Shield class="w-6 h-6 text-purple-400 mt-1" />
       <div class="space-y-2">
-        <h4 class="font-bold text-white">Security Tip</h4>
+        <h4 class="font-bold text-white">How It Works</h4>
         <p class="text-sm text-slate-400 leading-relaxed font-medium">
-          Always use a strong password when exposing the server to your local network. 
-          The server uses industry-standard Basic Authentication for all incoming command requests.
+          The access code is used to authenticate remote connections. Share it only with 
+          devices you trust. You can regenerate it anytime to revoke previous access.
         </p>
       </div>
     </div>

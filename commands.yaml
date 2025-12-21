@@ -2,28 +2,62 @@
 # Each command has:
 #   id: Unique identifier for the command
 #   name: Display name
-#   command: Shell command to execute
-#   focus_app: (Optional) Window title to focus after execution (Windows only)
+#   command_type: Type of command (shell, volume, open_directory, focus_app, keybind)
+#   + type-specific fields
 
-- id: open_notepad
-  name: Open Notepad
-  command: notepad.exe
-  focus_app: Notepad
-
-- id: open_calculator
-  name: Open Calculator
-  command: calc.exe
-  focus_app: Calculator
-
-- id: lock_screen
-  name: Lock Screen
-  command: rundll32.exe user32.dll,LockWorkStation
-
+# Volume Control Examples
 - id: volume_up
   name: Volume Up
-  command: powershell.exe -Command "(New-Object -ComObject Shell.Application).ApplicationVolume.IncrementVolume(5)"
+  command_type: volume
+  volume_direction: up
+  volume_step: 5
 
 - id: volume_down
   name: Volume Down
-  command: powershell.exe -Command "(New-Object -ComObject Shell.Application).ApplicationVolume.IncrementVolume(-5)"
+  command_type: volume
+  volume_direction: down
+  volume_step: 5
 
+- id: mute_toggle
+  name: Toggle Mute
+  command_type: volume
+  volume_direction: mute
+
+# Open Directory Examples
+- id: open_downloads
+  name: Open Downloads
+  command_type: open_directory
+  directory_path: ~/Downloads
+
+- id: open_documents
+  name: Open Documents
+  command_type: open_directory
+  directory_path: ~/Documents
+
+# Focus Application Examples
+- id: focus_browser
+  name: Focus Browser
+  command_type: focus_app
+  app_name: Safari
+
+- id: focus_terminal
+  name: Focus Terminal
+  command_type: focus_app
+  app_name: Terminal
+
+# Keyboard Shortcut Examples
+- id: cmd_space
+  name: Spotlight Search
+  command_type: keybind
+  keybind: cmd+space
+
+- id: screenshot
+  name: Screenshot
+  command_type: keybind
+  keybind: cmd+shift+3
+
+# Shell Command Examples (legacy format still supported)
+- id: lock_screen
+  name: Lock Screen
+  command_type: shell
+  command: pmset displaysleepnow

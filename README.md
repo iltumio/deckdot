@@ -6,7 +6,8 @@ A desktop application built with Tauri, Svelte, and Axum that allows you to cont
 
 - **Desktop Management UI**: Configure server settings, manage commands, and control the server
 - **HTTP Command Server**: Lightweight Axum server that listens on your local network
-- **Basic Authentication**: Secure your server with username/password authentication
+- **Simple Access Code**: Single auto-generated access code for authentication (no username needed)
+- **One-Click Sharing**: Share button copies a link with embedded auth code for easy phone access
 - **Custom Commands**: Define custom shell commands via YAML configuration
 - **Windows Focus Support**: Automatically focus specific applications after command execution (Windows only)
 - **Phone-Accessible UI**: Access the management interface from your phone on the same network
@@ -72,8 +73,12 @@ npm run tauri dev
 
 ### Configuration
 
-1. **Server Settings**: Configure the port, username, and password in the Settings tab
-2. **Commands**: Add/edit commands in the Commands tab. Each command has:
+1. **Server Settings**: Configure the port in the Settings tab
+2. **Access Code**: A random access code is auto-generated on first launch. You can:
+   - View/copy the current code
+   - Regenerate a new random code
+   - Set a custom code
+3. **Commands**: Add/edit commands in the Commands tab. Each command has:
    - **ID**: Unique identifier
    - **Name**: Display name
    - **Command**: Shell command to execute
@@ -84,16 +89,23 @@ npm run tauri dev
 1. Configure your settings in the Settings tab
 2. Click "Start Server" in the Server Control tab
 3. The server will listen on `0.0.0.0:{port}` for network access
-4. Access the management UI from your phone at `http://[your-pc-ip]:{port}`
+4. Click **"Share Remote Access Link"** to copy a URL with embedded auth code
+5. Open the link on your phone — it will auto-fill the access code
 
 ### Command Execution
 
-Send POST requests to `/execute` endpoint:
+Send POST requests to `/execute` endpoint with your access code:
 
 ```bash
+# Using query parameter (recommended)
+curl -X POST "http://[pc-ip]:8080/execute?code=YOUR_CODE" \
+  -H "Content-Type: application/json" \
+  -d '{"id": "open_notepad"}'
+
+# Or using Bearer token header
 curl -X POST http://[pc-ip]:8080/execute \
   -H "Content-Type: application/json" \
-  -H "Authorization: Basic $(echo -n 'username:password' | base64)" \
+  -H "Authorization: Bearer YOUR_CODE" \
   -d '{"id": "open_notepad"}'
 ```
 
@@ -109,7 +121,8 @@ curl http://[pc-ip]:8080/health
 
 - The management UI (Tauri webview) only binds to `127.0.0.1`
 - The command server binds to `0.0.0.0` for network access
-- Basic Auth is enforced on all server routes
+- Access code authentication is enforced on all command execution routes
+- **Regenerate code** if you suspect it's been compromised
 - **Important**: You must manually configure your firewall to allow connections on the chosen port
 - Commands execute with the user's permissions (no elevation)
 

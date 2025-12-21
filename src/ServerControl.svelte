@@ -5,18 +5,18 @@
   import { Button } from "$lib/components/ui/button";
   import { Badge } from "$lib/components/ui/badge";
   import * as Alert from "$lib/components/ui/alert";
-  import { Power, Network, Globe, AlertCircle, CheckCircle2, Copy, Check } from "lucide-svelte";
-  import { Confetti } from 'svelte-confetti';
+  import { Power, Network, Globe, AlertCircle, CheckCircle2, Copy, Check, Share2, ExternalLink } from "lucide-svelte";
 
   let serverRunning = false;
   let loading = false;
   let message = '';
   let messageType = '';
   let port = 8080;
+  let authCode = '';
   let localIps = [];
   let statusCheckInterval;
-  let showConfetti = false;
   let copiedIp = null;
+  let copiedShareLink = false;
 
   onMount(async () => {
     await refresh();
@@ -41,6 +41,7 @@
     try {
       const settings = await invoke('get_settings');
       port = settings.port;
+      authCode = settings.auth_code;
     } catch (error) {
       console.error('Failed to load settings:', error);
     }
@@ -74,9 +75,6 @@
       
       if (newStatus) {
         showMessage(`Server active on port ${settings.port}`, 'success');
-        // Trigger confetti celebration
-        showConfetti = true;
-        setTimeout(() => { showConfetti = false; }, 3000);
       } else {
         showMessage('Server shutdown complete', 'success');
       }
@@ -100,6 +98,10 @@
     return `http://${ip || 'localhost'}:${port}`;
   }
 
+  function getShareUrl(ip) {
+    return `http://${ip || 'localhost'}:${port}?code=${encodeURIComponent(authCode)}`;
+  }
+
   async function copyToClipboard(url) {
     try {
       await navigator.clipboard.writeText(url);
@@ -109,27 +111,25 @@
       console.error('Failed to copy:', error);
     }
   }
+
+  async function copyShareLink() {
+    const ip = localIps.length > 0 ? localIps[0] : 'localhost';
+    const shareUrl = getShareUrl(ip);
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      copiedShareLink = true;
+      showMessage('Share link copied to clipboard!', 'success');
+      setTimeout(() => { copiedShareLink = false; }, 2000);
+    } catch (error) {
+      showMessage('Failed to copy share link', 'error');
+    }
+  }
 </script>
 
 <div class="space-y-6">
-  <!-- Confetti container -->
-  {#if showConfetti}
-    <div class="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none z-50">
-      <Confetti 
-        amount={200}
-        x={[-1, 1]}
-        y={[-0.5, 0.5]}
-        duration={2500}
-        size={12}
-        colorArray={['#3b82f6', '#8b5cf6', '#ec4899', '#10b981', '#f59e0b']}
-        cone
-      />
-    </div>
-  {/if}
-
   {#if message}
-    <div class="animate-in fade-in zoom-in duration-300">
-      <Alert.Root variant={messageType === 'error' ? 'destructive' : 'default'} class="glass border-white/10 text-white">
+    <div class="fixed top-4 right-4 z-50 max-w-sm animate-in fade-in slide-in-from-top-4 duration-300">
+      <Alert.Root variant={messageType === 'error' ? 'destructive' : 'default'} class="glass border-white/10 text-white shadow-2xl">
         {#if messageType === 'error'}
           <AlertCircle class="h-4 w-4 text-red-400" />
         {:else}
@@ -180,36 +180,56 @@
 
       {#if serverRunning}
         <div class="space-y-3 animate-in fade-in slide-in-from-top-2 duration-500">
-          <h4 class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Access URLs (tap to copy)</h4>
-          <div class="grid grid-cols-1 gap-2">
-            {#each localIps as ip}
-              {@const url = getServerUrl(ip)}
-              <button
-                onclick={() => copyToClipboard(url)}
-                class="p-3 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center gap-3 hover:bg-blue-500/20 transition-all group cursor-pointer text-left w-full"
-              >
-                <Globe class="w-4 h-4 text-blue-400 shrink-0" />
-                <div class="flex-1 min-w-0">
-                  <p class="text-[10px] text-blue-300 font-black uppercase tracking-wider">Network IP</p>
-                  <p class="text-white text-xs font-mono font-bold truncate">{url}</p>
-                </div>
-                {#if copiedIp === url}
-                  <Check class="w-4 h-4 text-green-400 shrink-0" />
-                {:else}
-                  <Copy class="w-4 h-4 text-slate-500 group-hover:text-white transition-colors shrink-0" />
-                {/if}
-              </button>
-            {/each}
-            
-            {#if localIps.length === 0}
-              <div class="p-3 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center gap-3">
-                <Globe class="w-4 h-4 text-blue-400" />
-                <div>
-                  <p class="text-[10px] text-blue-300 font-black uppercase tracking-wider">Local</p>
-                  <p class="text-white text-xs font-mono font-bold">{getServerUrl('localhost')}</p>
-                </div>
-              </div>
+          <!-- Share Button - Main Action -->
+          <Button
+            onclick={copyShareLink}
+            class="w-full h-14 rounded-xl font-bold text-base bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 shadow-lg shadow-purple-600/20 flex items-center justify-center gap-3"
+          >
+            {#if copiedShareLink}
+              <Check class="w-5 h-5" />
+              <span>Link Copied!</span>
+            {:else}
+              <Share2 class="w-5 h-5" />
+              <span>Share Remote Access Link</span>
             {/if}
+          </Button>
+          
+          <p class="text-center text-xs text-slate-500 font-medium">
+            Copy link with embedded access code — just open on your phone
+          </p>
+
+          <div class="pt-2 border-t border-white/10">
+            <h4 class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Access URLs</h4>
+            <div class="grid grid-cols-1 gap-2">
+              {#each localIps as ip}
+                {@const url = getServerUrl(ip)}
+                <button
+                  onclick={() => copyToClipboard(url)}
+                  class="p-3 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center gap-3 hover:bg-blue-500/20 transition-all group cursor-pointer text-left w-full"
+                >
+                  <Globe class="w-4 h-4 text-blue-400 shrink-0" />
+                  <div class="flex-1 min-w-0">
+                    <p class="text-[10px] text-blue-300 font-black uppercase tracking-wider">Network IP</p>
+                    <p class="text-white text-xs font-mono font-bold truncate">{url}</p>
+                  </div>
+                  {#if copiedIp === url}
+                    <Check class="w-4 h-4 text-green-400 shrink-0" />
+                  {:else}
+                    <Copy class="w-4 h-4 text-slate-500 group-hover:text-white transition-colors shrink-0" />
+                  {/if}
+                </button>
+              {/each}
+              
+              {#if localIps.length === 0}
+                <div class="p-3 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center gap-3">
+                  <Globe class="w-4 h-4 text-blue-400" />
+                  <div>
+                    <p class="text-[10px] text-blue-300 font-black uppercase tracking-wider">Local</p>
+                    <p class="text-white text-xs font-mono font-bold">{getServerUrl('localhost')}</p>
+                  </div>
+                </div>
+              {/if}
+            </div>
           </div>
           
           <div class="p-3 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center gap-3">

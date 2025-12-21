@@ -4,6 +4,7 @@
 mod commands;
 mod config;
 mod server;
+mod system_commands;
 mod windows_focus;
 
 use commands::{CommandConfig, Commands};
@@ -19,6 +20,7 @@ struct AppState {
     settings: Arc<Mutex<Settings>>,
     commands: Arc<Mutex<Commands>>,
     commands_path: PathBuf,
+    settings_path: PathBuf,
 }
 
 #[tauri::command]
@@ -72,8 +74,26 @@ async fn save_settings(
     state: State<'_, AppState>,
 ) -> Result<(), String> {
     settings.validate()?;
+    
+    // Save to disk
+    settings.save_to_file(&state.settings_path)?;
+    
+    // Update in memory
     *state.settings.lock().await = settings;
     Ok(())
+}
+
+#[tauri::command]
+async fn regenerate_auth_code(state: State<'_, AppState>) -> Result<String, String> {
+    let new_code = Settings::generate_random_code();
+    
+    let mut settings = state.settings.lock().await;
+    settings.auth_code = new_code.clone();
+    
+    // Save to disk
+    settings.save_to_file(&state.settings_path)?;
+    
+    Ok(new_code)
 }
 
 #[tauri::command]
@@ -180,6 +200,12 @@ fn get_local_ips() -> Vec<String> {
     ips
 }
 
+/// Get a list of running applications that can be focused
+#[tauri::command]
+fn get_running_applications() -> Vec<String> {
+    system_commands::get_running_applications()
+}
+
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
@@ -198,6 +224,7 @@ fn main() {
                 .map_err(|e| format!("Failed to create app data directory: {}", e))?;
             
             let commands_path = app_data_dir.join("commands.yaml");
+            let settings_path = app_data_dir.join("settings.json");
             
             // If commands.yaml doesn't exist, try to copy from resource dir or create default
             if !commands_path.exists() {
@@ -222,11 +249,33 @@ fn main() {
                 Commands::new()
             };
 
+            // Load or create default settings
+            let settings = if settings_path.exists() {
+                Settings::load_from_file(&settings_path)
+                    .unwrap_or_else(|e| {
+                        eprintln!("Failed to load settings.json: {}, using default", e);
+                        let default_settings = Settings::default();
+                        // Save the default settings
+                        if let Err(e) = default_settings.save_to_file(&settings_path) {
+                            eprintln!("Failed to save default settings: {}", e);
+                        }
+                        default_settings
+                    })
+            } else {
+                // Create new settings with random auth code
+                let default_settings = Settings::default();
+                if let Err(e) = default_settings.save_to_file(&settings_path) {
+                    eprintln!("Failed to save default settings: {}", e);
+                }
+                default_settings
+            };
+
             let app_state = AppState {
                 server_handle: Arc::new(Mutex::new(None)),
-                settings: Arc::new(Mutex::new(Settings::default())),
+                settings: Arc::new(Mutex::new(settings)),
                 commands: Arc::new(Mutex::new(commands)),
                 commands_path,
+                settings_path,
             };
 
             app.manage(app_state);
@@ -241,8 +290,9 @@ fn main() {
             save_commands,
             get_server_status,
             get_local_ips,
+            get_running_applications,
+            regenerate_auth_code,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
-
