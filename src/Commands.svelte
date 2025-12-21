@@ -165,7 +165,7 @@
       />
     </div>
     <Button 
-      on:click={startAdd} 
+      onclick={startAdd} 
       disabled={showForm || loading}
       class="w-full md:w-auto bg-blue-600 hover:bg-blue-700 text-white h-11 px-6 rounded-xl flex items-center gap-2 font-bold shadow-lg"
     >
@@ -232,11 +232,11 @@
       </Card.Content>
 
       <Card.Footer class="flex justify-end gap-3 bg-white/5 border-t border-white/10 py-4 mt-4">
-        <Button variant="ghost" on:click={cancelEdit} class="text-slate-400 hover:text-white hover:bg-white/5 h-11 px-6 rounded-xl font-bold">
+        <Button variant="ghost" onclick={cancelEdit} class="text-slate-400 hover:text-white hover:bg-white/5 h-11 px-6 rounded-xl font-bold">
           <X class="w-4 h-4 mr-2" />
           Cancel
         </Button>
-        <Button on:click={saveCommand} disabled={loading} class="bg-blue-600 hover:bg-blue-700 text-white h-11 px-8 rounded-xl font-bold shadow-lg">
+        <Button onclick={saveCommand} disabled={loading} class="bg-blue-600 hover:bg-blue-700 text-white h-11 px-8 rounded-xl font-bold shadow-lg">
           <Save class="w-4 h-4 mr-2" />
           {loading ? 'Saving...' : 'Save Command'}
         </Button>
@@ -251,7 +251,7 @@
       </div>
       <h3 class="text-xl font-bold text-white mb-2">No commands yet</h3>
       <p class="text-slate-400 mb-8 max-w-sm mx-auto font-medium">Configure your first remote command to start controlling your PC.</p>
-      <Button on:click={startAdd} class="bg-blue-600 hover:bg-blue-700 text-white font-bold px-8 shadow-xl">
+      <Button onclick={startAdd} class="bg-blue-600 hover:bg-blue-700 text-white font-bold px-8 shadow-xl">
         Create Your First Command
       </Button>
     </div>
@@ -271,10 +271,10 @@
               </Badge>
             </div>
             <div class="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-              <Button size="icon" variant="ghost" on:click={() => startEdit(cmd)} class="h-8 w-8 text-slate-400 hover:text-white hover:bg-white/10">
+              <Button size="icon" variant="ghost" onclick={() => startEdit(cmd)} class="h-8 w-8 text-slate-400 hover:text-white hover:bg-white/10">
                 <Edit2 class="w-3.5 h-3.5" />
               </Button>
-              <Button size="icon" variant="ghost" on:click={() => deleteCommand(cmd.id)} class="h-8 w-8 text-slate-400 hover:text-red-400 hover:bg-white/10">
+              <Button size="icon" variant="ghost" onclick={() => deleteCommand(cmd.id)} class="h-8 w-8 text-slate-400 hover:text-red-400 hover:bg-white/10">
                 <Trash2 class="w-3.5 h-3.5" />
               </Button>
             </div>

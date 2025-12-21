@@ -8,14 +8,14 @@ mod windows_focus;
 
 use commands::{CommandConfig, Commands};
 use config::Settings;
+use server::ServerHandle;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tauri::{Manager, State};
 use tokio::sync::Mutex;
-use tokio::task::JoinHandle;
 
 struct AppState {
-    server_handle: Arc<Mutex<Option<JoinHandle<()>>>>,
+    server_handle: Arc<Mutex<Option<ServerHandle>>>,
     settings: Arc<Mutex<Settings>>,
     commands: Arc<Mutex<Commands>>,
     commands_path: PathBuf,
@@ -31,7 +31,9 @@ async fn toggle_server(
     let mut handle_lock = state.server_handle.lock().await;
 
     if let Some(handle) = handle_lock.take() {
-        handle.abort();
+        // Gracefully shutdown the server
+        handle.shutdown();
+        println!("Server stopped");
         Ok(false)
     } else {
         let settings_clone = settings.clone();
@@ -49,13 +51,11 @@ async fn toggle_server(
             .ok()
             .map(|p: PathBuf| p.join("dist").to_string_lossy().to_string());
 
-        let handle = tokio::spawn(async move {
-            if let Err(e) = server::start_server(settings_clone, commands_clone, dist_path).await {
-                eprintln!("Server error: {}", e);
-            }
-        });
+        // Start the server and get the handle
+        let server_handle = server::start_server(settings_clone, commands_clone, dist_path).await?;
 
-        *handle_lock = Some(handle);
+        *handle_lock = Some(server_handle);
+        println!("Server started on port {}", settings.port);
         Ok(true)
     }
 }
@@ -110,6 +110,74 @@ async fn save_commands(
 async fn get_server_status(state: State<'_, AppState>) -> Result<bool, String> {
     let handle = state.server_handle.lock().await;
     Ok(handle.is_some())
+}
+
+#[tauri::command]
+fn get_local_ips() -> Vec<String> {
+    let mut ips = Vec::new();
+    
+    if let Ok(interfaces) = std::net::UdpSocket::bind("0.0.0.0:0") {
+        // Connect to a public IP to determine local IP
+        if interfaces.connect("8.8.8.8:80").is_ok() {
+            if let Ok(local_addr) = interfaces.local_addr() {
+                ips.push(local_addr.ip().to_string());
+            }
+        }
+    }
+    
+    // Fallback: try to get all network interfaces
+    #[cfg(target_os = "windows")]
+    {
+        // On Windows, use ipconfig output parsing or network interfaces
+        if ips.is_empty() {
+            if let Ok(output) = std::process::Command::new("ipconfig")
+                .output()
+            {
+                let output_str = String::from_utf8_lossy(&output.stdout);
+                for line in output_str.lines() {
+                    if line.contains("IPv4") && line.contains(":") {
+                        if let Some(ip_part) = line.split(':').last() {
+                            let ip = ip_part.trim();
+                            if !ip.starts_with("127.") && !ip.is_empty() {
+                                ips.push(ip.to_string());
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    #[cfg(not(target_os = "windows"))]
+    {
+        // On Unix-like systems, try ifconfig or ip command
+        if ips.is_empty() {
+            if let Ok(output) = std::process::Command::new("ifconfig")
+                .output()
+            {
+                let output_str = String::from_utf8_lossy(&output.stdout);
+                for line in output_str.lines() {
+                    if line.contains("inet ") && !line.contains("127.0.0.1") {
+                        let parts: Vec<&str> = line.split_whitespace().collect();
+                        for (i, part) in parts.iter().enumerate() {
+                            if *part == "inet" && i + 1 < parts.len() {
+                                let ip = parts[i + 1];
+                                if !ip.starts_with("127.") {
+                                    ips.push(ip.to_string());
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    // Remove duplicates
+    ips.sort();
+    ips.dedup();
+    
+    ips
 }
 
 fn main() {
@@ -172,6 +240,7 @@ fn main() {
             reload_commands,
             save_commands,
             get_server_status,
+            get_local_ips,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -4,9 +4,8 @@
   import * as Card from "$lib/components/ui/card";
   import { Button } from "$lib/components/ui/button";
   import { Badge } from "$lib/components/ui/badge";
-  import { Switch } from "$lib/components/ui/switch";
   import * as Alert from "$lib/components/ui/alert";
-  import { Power, Activity, Network, Globe, AlertCircle, CheckCircle2 } from "lucide-svelte";
+  import { Power, Network, Globe, AlertCircle, CheckCircle2, Copy, Check } from "lucide-svelte";
   import { Confetti } from 'svelte-confetti';
 
   let serverRunning = false;
@@ -14,16 +13,23 @@
   let message = '';
   let messageType = '';
   let port = 8080;
+  let localIps = [];
   let statusCheckInterval;
   let showConfetti = false;
+  let copiedIp = null;
 
   onMount(async () => {
+    await refresh();
+    
+    // Poll server status and settings every 2 seconds
+    statusCheckInterval = setInterval(refresh, 2000);
+  });
+
+  async function refresh() {
     await checkStatus();
     await loadSettings();
-    
-    // Poll server status every 2 seconds
-    statusCheckInterval = setInterval(checkStatus, 2000);
-  });
+    await loadLocalIps();
+  }
 
   onDestroy(() => {
     if (statusCheckInterval) {
@@ -37,6 +43,15 @@
       port = settings.port;
     } catch (error) {
       console.error('Failed to load settings:', error);
+    }
+  }
+
+  async function loadLocalIps() {
+    try {
+      localIps = await invoke('get_local_ips');
+    } catch (error) {
+      console.error('Failed to get local IPs:', error);
+      localIps = ['localhost'];
     }
   }
 
@@ -81,8 +96,18 @@
     }, 3000);
   }
 
-  function getServerUrl() {
-    return `http://localhost:${port}`;
+  function getServerUrl(ip) {
+    return `http://${ip || 'localhost'}:${port}`;
+  }
+
+  async function copyToClipboard(url) {
+    try {
+      await navigator.clipboard.writeText(url);
+      copiedIp = url;
+      setTimeout(() => { copiedIp = null; }, 2000);
+    } catch (error) {
+      console.error('Failed to copy:', error);
+    }
   }
 </script>
 
@@ -138,26 +163,60 @@
           </div>
         </div>
 
-        <div class="flex items-center gap-3 bg-white/5 pl-4 pr-2 py-1.5 rounded-xl border border-white/10">
-          <span class="text-[11px] font-black text-slate-300 uppercase tracking-wider">{serverRunning ? 'Shutdown' : 'Boot'}</span>
-          <Switch checked={serverRunning} onCheckedChange={toggleServer} disabled={loading} class="data-[state=checked]:bg-blue-500 scale-90" />
-        </div>
+        <Button 
+          onclick={toggleServer}
+          disabled={loading}
+          variant={serverRunning ? "destructive" : "default"}
+          class={`px-6 h-10 rounded-xl font-bold flex items-center gap-2 ${serverRunning ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'}`}
+        >
+          <Power class="w-4 h-4" />
+          {#if loading}
+            {serverRunning ? 'Stopping...' : 'Starting...'}
+          {:else}
+            {serverRunning ? 'Stop Server' : 'Start Server'}
+          {/if}
+        </Button>
       </div>
 
       {#if serverRunning}
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 animate-in fade-in slide-in-from-top-2 duration-500">
-          <div class="p-3 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center gap-3">
-            <Globe class="w-4 h-4 text-blue-400" />
-            <div>
-              <p class="text-[10px] text-blue-300 font-black uppercase tracking-wider">Local IP</p>
-              <p class="text-white text-xs font-mono font-bold">{getServerUrl()}</p>
-            </div>
+        <div class="space-y-3 animate-in fade-in slide-in-from-top-2 duration-500">
+          <h4 class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Access URLs (tap to copy)</h4>
+          <div class="grid grid-cols-1 gap-2">
+            {#each localIps as ip}
+              {@const url = getServerUrl(ip)}
+              <button
+                onclick={() => copyToClipboard(url)}
+                class="p-3 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center gap-3 hover:bg-blue-500/20 transition-all group cursor-pointer text-left w-full"
+              >
+                <Globe class="w-4 h-4 text-blue-400 shrink-0" />
+                <div class="flex-1 min-w-0">
+                  <p class="text-[10px] text-blue-300 font-black uppercase tracking-wider">Network IP</p>
+                  <p class="text-white text-xs font-mono font-bold truncate">{url}</p>
+                </div>
+                {#if copiedIp === url}
+                  <Check class="w-4 h-4 text-green-400 shrink-0" />
+                {:else}
+                  <Copy class="w-4 h-4 text-slate-500 group-hover:text-white transition-colors shrink-0" />
+                {/if}
+              </button>
+            {/each}
+            
+            {#if localIps.length === 0}
+              <div class="p-3 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center gap-3">
+                <Globe class="w-4 h-4 text-blue-400" />
+                <div>
+                  <p class="text-[10px] text-blue-300 font-black uppercase tracking-wider">Local</p>
+                  <p class="text-white text-xs font-mono font-bold">{getServerUrl('localhost')}</p>
+                </div>
+              </div>
+            {/if}
           </div>
+          
           <div class="p-3 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center gap-3">
             <Network class="w-4 h-4 text-purple-400" />
             <div>
-              <p class="text-[10px] text-purple-300 font-black uppercase tracking-wider">Access</p>
-              <p class="text-white text-xs font-bold">Public 0.0.0.0</p>
+              <p class="text-[10px] text-purple-300 font-black uppercase tracking-wider">Binding</p>
+              <p class="text-white text-xs font-bold">0.0.0.0:{port} (all interfaces)</p>
             </div>
           </div>
         </div>

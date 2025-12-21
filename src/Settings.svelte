@@ -143,7 +143,7 @@
 
     <Card.Footer class="bg-white/5 border-t border-white/10 mt-6 py-6 flex justify-end">
       <Button 
-        on:click={saveSettings} 
+        onclick={saveSettings} 
         disabled={loading}
         class="bg-blue-600 hover:bg-blue-700 text-white px-8 h-11 rounded-xl shadow-lg shadow-blue-600/20 flex items-center gap-2"
       >
