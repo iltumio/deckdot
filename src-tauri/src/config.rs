@@ -12,7 +12,7 @@ pub struct Settings {
 impl Settings {
     pub fn default() -> Self {
         Self {
-            port: 8080,
+            port: 7776,
             auth_code: Self::generate_random_code(),
         }
     }

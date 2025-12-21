@@ -47,14 +47,35 @@ async fn toggle_server(
         // Update stored settings
         *state.settings.lock().await = settings_clone.clone();
 
-        // Get dist path for static file serving
-        // For development, try the project root dist
-        let dist_path = std::env::current_dir()
+        // Get mobile-dist path for static file serving
+        // Try multiple locations in order of preference
+        let mobile_dist_path = std::env::current_dir()
             .ok()
-            .map(|p: PathBuf| p.join("dist").to_string_lossy().to_string());
+            .map(|p: PathBuf| p.join("mobile-dist"))
+            .filter(|p| p.exists())
+            .or_else(|| {
+                // When running from src-tauri, try parent directory
+                std::env::current_dir()
+                    .ok()
+                    .map(|p| p.join("..").join("mobile-dist"))
+                    .filter(|p| p.exists())
+                    .map(|p| p.canonicalize().ok())
+                    .flatten()
+            })
+            .or_else(|| {
+                // Try resource directory (for production builds)
+                dirs::data_dir().map(|p| p.join("deck").join("mobile-dist")).filter(|p| p.exists())
+            })
+            .map(|p| p.to_string_lossy().to_string());
+        
+        if let Some(ref path) = mobile_dist_path {
+            println!("Mobile dist path: {}", path);
+        } else {
+            println!("Mobile dist not found - will use fallback HTML");
+        }
 
         // Start the server and get the handle
-        let server_handle = server::start_server(settings_clone, commands_clone, dist_path).await?;
+        let server_handle = server::start_server(settings_clone, commands_clone, mobile_dist_path).await?;
 
         *handle_lock = Some(server_handle);
         println!("Server started on port {}", settings.port);

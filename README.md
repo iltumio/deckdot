@@ -10,7 +10,7 @@ A desktop application built with Tauri, Svelte, and Axum that allows you to cont
 - **One-Click Sharing**: Share button copies a link with embedded auth code for easy phone access
 - **Custom Commands**: Define custom shell commands via YAML configuration
 - **Windows Focus Support**: Automatically focus specific applications after command execution (Windows only)
-- **Phone-Accessible UI**: Access the management interface from your phone on the same network
+- **Phone-Accessible UI**: Beautiful Svelte mobile web app served from the Rust backend
 
 ## Tech Stack
 
@@ -18,6 +18,7 @@ A desktop application built with Tauri, Svelte, and Axum that allows you to cont
 - **UI Components**: shadcn-svelte + Bits UI + Lucide Svelte
 - **Desktop Wrapper**: Tauri 2.0
 - **Backend Server**: Axum (embedded in Rust)
+- **Mobile Web UI**: Svelte (same components as desktop)
 - **Configuration**: YAML files for commands
 
 ## Project Structure
@@ -29,14 +30,20 @@ deck/
 │   │   ├── main.rs     # Tauri app entry, command bridge
 │   │   ├── config.rs   # Settings management
 │   │   ├── commands.rs # Command configuration loading
-│   │   ├── server.rs   # Axum HTTP server
+│   │   ├── server.rs   # Axum HTTP server + static file serving
 │   │   └── windows_focus.rs  # Windows window focus logic
 │   └── Cargo.toml
-├── src/                # Svelte frontend
+├── src/                # Svelte desktop frontend
 │   ├── App.svelte
 │   ├── Settings.svelte
 │   ├── Commands.svelte
-│   └── ServerControl.svelte
+│   ├── ServerControl.svelte
+│   └── lib/            # Shared UI components (shadcn-svelte)
+├── mobile/             # Svelte mobile web app (reuses src/lib)
+│   ├── App.svelte      # Mobile-optimized command interface
+│   ├── main.js
+│   └── app.css
+├── mobile-dist/        # Built mobile web app (served by Rust)
 ├── commands.yaml       # Default command configuration
 └── package.json
 ```
@@ -98,12 +105,12 @@ Send POST requests to `/execute` endpoint with your access code:
 
 ```bash
 # Using query parameter (recommended)
-curl -X POST "http://[pc-ip]:8080/execute?code=YOUR_CODE" \
+curl -X POST "http://[pc-ip]:7776/execute?code=YOUR_CODE" \
   -H "Content-Type: application/json" \
   -d '{"id": "open_notepad"}'
 
 # Or using Bearer token header
-curl -X POST http://[pc-ip]:8080/execute \
+curl -X POST http://[pc-ip]:7776/execute \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer YOUR_CODE" \
   -d '{"id": "open_notepad"}'
@@ -114,7 +121,7 @@ curl -X POST http://[pc-ip]:8080/execute \
 Check if the server is running:
 
 ```bash
-curl http://[pc-ip]:8080/health
+curl http://[pc-ip]:7776/health
 ```
 
 ## Security Considerations
@@ -128,11 +135,19 @@ curl http://[pc-ip]:8080/health
 
 ## Development
 
-### Frontend Development
+### Desktop Frontend Development
 
 ```bash
 npm run dev
 ```
+
+### Mobile Web App Development
+
+```bash
+npm run dev:mobile
+```
+
+This starts a dev server at `http://localhost:1421` for the mobile web app.
 
 ### Backend Development
 
@@ -141,10 +156,22 @@ The Rust backend is compiled automatically when running `npm run tauri dev`.
 ### Building for Production
 
 ```bash
+# Build both desktop and mobile apps
+npm run build:all
+
+# Then build the Tauri application
 npm run tauri build
 ```
 
 The built application will be in `src-tauri/target/release/`.
+
+### Build Scripts
+
+- `npm run dev` - Start desktop Vite dev server
+- `npm run dev:mobile` - Start mobile web app dev server
+- `npm run build` - Build desktop frontend
+- `npm run build:mobile` - Build mobile web app to `mobile-dist/`
+- `npm run build:all` - Build both desktop and mobile
 
 ## Command Configuration
 

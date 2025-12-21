@@ -5,3 +5,8 @@ export function cn(...inputs: ClassValue[]) {
     return twMerge(clsx(inputs));
 }
 
+// Type helper for ref binding
+export type WithElementRef<T, E extends HTMLElement = HTMLElement> = T & {
+    ref?: E | null;
+};
+

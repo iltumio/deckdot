@@ -7,16 +7,16 @@
   import * as Alert from "$lib/components/ui/alert";
   import { Power, Network, Globe, AlertCircle, CheckCircle2, Copy, Check, Share2, ExternalLink } from "lucide-svelte";
 
-  let serverRunning = false;
-  let loading = false;
-  let message = '';
-  let messageType = '';
-  let port = 8080;
-  let authCode = '';
-  let localIps = [];
+  let serverRunning = $state(false);
+  let loading = $state(false);
+  let message = $state('');
+  let messageType = $state('');
+  let port = $state(null);
+  let authCode = $state('');
+  let localIps = $state([]);
   let statusCheckInterval;
-  let copiedIp = null;
-  let copiedShareLink = false;
+  let copiedIp = $state(null);
+  let copiedShareLink = $state(false);
 
   onMount(async () => {
     await refresh();
@@ -247,7 +247,7 @@
           <span class="text-[10px] text-slate-400 font-bold uppercase tracking-tight">Auto-restart: <span class="text-blue-400">ON</span></span>
           <span class="text-[10px] text-slate-400 font-bold uppercase tracking-tight">Uptime: <span class={serverRunning ? "text-green-400" : "text-slate-500"}>{serverRunning ? 'Active' : 'N/A'}</span></span>
         </div>
-        {#if !serverRunning}
+        {#if !serverRunning && port}
           <div class="flex items-center gap-1.5 text-[10px] text-slate-400 font-medium italic">
             <AlertCircle class="w-3 h-3" />
             PC accessible on port {port}

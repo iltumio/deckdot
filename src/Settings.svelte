@@ -8,20 +8,22 @@
   import * as Alert from "$lib/components/ui/alert";
   import { Settings as SettingsIcon, Shield, Hash, Lock, Save, CheckCircle2, AlertCircle, Network, RefreshCw, Copy, Check, Eye, EyeOff } from "lucide-svelte";
 
-  let port = 8080;
-  let authCode = '';
-  let loading = false;
-  let regenerating = false;
-  let message = '';
-  let messageType = '';
-  let copied = false;
-  let showCode = false;
+  let port = $state(null);
+  let authCode = $state('');
+  let loading = $state(false);
+  let settingsLoaded = $state(false);
+  let regenerating = $state(false);
+  let message = $state('');
+  let messageType = $state('');
+  let copied = $state(false);
+  let showCode = $state(false);
 
   onMount(async () => {
     try {
       const settings = await invoke('get_settings');
       port = settings.port;
       authCode = settings.auth_code;
+      settingsLoaded = true;
     } catch (error) {
       showMessage('Failed to load settings: ' + error, 'error');
     }
@@ -124,8 +126,9 @@
               bind:value={port}
               min="1"
               max="65535"
+              disabled={!settingsLoaded}
               class="bg-white/5 border-white/10 text-white pl-10 h-12 rounded-xl focus:ring-blue-500 focus:border-blue-500 font-bold"
-              placeholder="8080"
+              placeholder={settingsLoaded ? '' : 'Loading...'}
             />
           </div>
           <p class="text-xs text-slate-500 font-medium">The port used for both management UI and phone access.</p>
