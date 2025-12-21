@@ -12,7 +12,9 @@
     "build:all": "npm run build && npm run build:mobile"
   },
   "dependencies": {
+    "@tanstack/svelte-query": "^5.0.0",
     "@tauri-apps/api": "^2.0.0",
+    "@tauri-apps/plugin-dialog": "^2.0.0",
     "@tauri-apps/plugin-shell": "^2.0.0",
     "bits-ui": "^2.14.4",
     "clsx": "^2.1.1",

@@ -1,5 +1,6 @@
 <script>
   import { invoke } from '@tauri-apps/api/core';
+  import { open } from '@tauri-apps/plugin-dialog';
   import { onMount } from 'svelte';
   import * as Card from "$lib/components/ui/card";
   import { Button } from "$lib/components/ui/button";
@@ -40,9 +41,23 @@
   let searchQuery = '';
   
   // Form fields
-  let formId = '';
   let formName = '';
   let formCommandType = 'shell';
+  
+  // Auto-generate ID from name
+  function generateId(name) {
+    return name
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9\s-]/g, '') // Remove special chars
+      .replace(/\s+/g, '_')          // Replace spaces with underscores
+      .replace(/-+/g, '_')           // Replace hyphens with underscores
+      .replace(/_+/g, '_')           // Collapse multiple underscores
+      .replace(/^_|_$/g, '');        // Trim underscores from ends
+  }
+  
+  // Get the ID (generated or existing for edits)
+  let editingOriginalId = null;
   let formCommand = '';
   let formFocusApp = '';
   
@@ -114,6 +129,23 @@
     isRecordingKeybind = false;
   }
 
+  async function browseDirectory() {
+    try {
+      const selected = await open({
+        directory: true,
+        multiple: false,
+        title: 'Select Directory',
+      });
+      
+      if (selected) {
+        formDirectoryPath = selected;
+      }
+    } catch (error) {
+      console.error('Failed to open directory picker:', error);
+      showMessage('Failed to open directory picker: ' + error, 'error');
+    }
+  }
+
   onMount(async () => {
     await loadCommands();
     await loadRunningApps();
@@ -137,7 +169,6 @@
   }
 
   function resetForm() {
-    formId = '';
     formName = '';
     formCommandType = 'shell';
     formCommand = '';
@@ -147,6 +178,7 @@
     formDirectoryPath = '';
     formAppName = '';
     formKeybind = '';
+    editingOriginalId = null;
   }
 
   function startAdd() {
@@ -158,7 +190,7 @@
 
   function startEdit(cmd) {
     editingId = cmd.id;
-    formId = cmd.id;
+    editingOriginalId = cmd.id; // Keep original ID for edits
     formName = cmd.name;
     formCommandType = cmd.command_type || 'shell';
     formCommand = cmd.command || '';
@@ -178,8 +210,10 @@
   }
 
   function buildCommandObject() {
+    // Use original ID for edits, generate new ID for new commands
+    const id = editingOriginalId || generateId(formName);
     const base = {
-      id: formId,
+      id,
       name: formName,
       command_type: formCommandType,
     };
@@ -218,8 +252,16 @@
   }
 
   function validateForm() {
-    if (!formId || !formName) {
-      return 'ID and Name are required';
+    if (!formName || !formName.trim()) {
+      return 'Name is required';
+    }
+    
+    // Check for duplicate ID when creating new command
+    if (!editingOriginalId) {
+      const generatedId = generateId(formName);
+      if (commands.some(c => c.id === generatedId)) {
+        return 'A command with this name already exists';
+      }
     }
 
     switch (formCommandType) {
@@ -262,11 +304,6 @@
           updatedCommands[index] = newCommand;
         }
       } else {
-        if (updatedCommands.some(c => c.id === formId)) {
-          showMessage('Command ID already exists', 'error');
-          loading = false;
-          return;
-        }
         updatedCommands.push(newCommand);
       }
 
@@ -417,27 +454,20 @@
       </Card.Header>
       
       <Card.Content class="space-y-4">
-        <!-- Basic Info -->
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div class="grid gap-2">
-            <Label for="form-id" class="text-slate-300 font-bold">Identifier (ID)</Label>
-            <Input
-              id="form-id"
-              bind:value={formId}
-              placeholder="e.g. volume_up"
-              disabled={!!editingId}
-              class="bg-white/5 border-white/10 text-white h-11 rounded-xl font-bold"
-            />
-          </div>
-          <div class="grid gap-2">
-            <Label for="form-name" class="text-slate-300 font-bold">Display Name</Label>
-            <Input
-              id="form-name"
-              bind:value={formName}
-              placeholder="e.g. Increase Volume"
-              class="bg-white/5 border-white/10 text-white h-11 rounded-xl font-bold"
-            />
-          </div>
+        <!-- Command Name -->
+        <div class="grid gap-2">
+          <Label for="form-name" class="text-slate-300 font-bold">Command Name</Label>
+          <Input
+            id="form-name"
+            bind:value={formName}
+            placeholder="e.g. Increase Volume"
+            class="bg-white/5 border-white/10 text-white h-11 rounded-xl font-bold"
+          />
+          {#if formName && !editingId}
+            <p class="text-xs text-slate-500">
+              ID: <span class="font-mono text-blue-400">{generateId(formName) || '...'}</span>
+            </p>
+          {/if}
         </div>
 
         <!-- Command Type Selection -->
@@ -513,16 +543,26 @@
         {#if formCommandType === 'open_directory'}
           <div class="grid gap-2">
             <Label for="form-dir-path" class="text-slate-300 font-bold">Directory Path</Label>
-            <div class="relative">
-              <FolderOpen class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-400" />
-              <Input
-                id="form-dir-path"
-                bind:value={formDirectoryPath}
-                placeholder="~/Documents or /Users/name/Projects"
-                class="bg-white/5 border-white/10 text-white h-11 rounded-xl font-bold pl-10"
-              />
+            <div class="flex gap-2">
+              <div class="relative flex-1">
+                <FolderOpen class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-400" />
+                <Input
+                  id="form-dir-path"
+                  bind:value={formDirectoryPath}
+                  placeholder="~/Documents or /Users/name/Projects"
+                  class="bg-white/5 border-white/10 text-white h-11 rounded-xl font-bold pl-10"
+                />
+              </div>
+              <Button 
+                type="button"
+                onclick={browseDirectory}
+                class="bg-white/10 hover:bg-white/20 text-white h-11 px-4 rounded-xl font-bold flex items-center gap-2"
+              >
+                <FolderOpen class="w-4 h-4" />
+                Browse
+              </Button>
             </div>
-            <p class="text-xs text-slate-400">Use ~ for home directory, e.g., ~/Downloads</p>
+            <p class="text-xs text-slate-400">Use ~ for home directory, or click Browse to select a folder</p>
           </div>
         {/if}
 

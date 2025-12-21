@@ -1,5 +1,5 @@
-use crate::commands::Commands;
 use crate::config::Settings;
+use crate::database::SharedDatabase;
 use crate::system_commands;
 use crate::windows_focus;
 use axum::{
@@ -12,7 +12,7 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::sync::Arc;
-use tokio::sync::oneshot;
+use tokio::sync::{oneshot, Mutex};
 use tower_http::services::ServeDir;
 
 #[derive(Serialize, Deserialize)]
@@ -60,8 +60,11 @@ async fn commands_handler(
     }
     drop(settings);
 
-    let commands = state.commands.lock().await;
-    let command_list: Vec<CommandInfo> = commands.all()
+    // Fetch commands fresh from the database
+    let db = state.database.lock().await;
+    let commands = db.get_all_commands().map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    
+    let command_list: Vec<CommandInfo> = commands
         .into_iter()
         .map(|c| CommandInfo { id: c.id, name: c.name })
         .collect();
@@ -187,14 +190,13 @@ async fn execute_handler(
     if !verify_auth(&query, &headers, &settings) {
         return Err(StatusCode::UNAUTHORIZED);
     }
-
     drop(settings);
 
-    let commands = state.commands.lock().await;
-    let cmd_config = commands.get(&req.id)
-        .ok_or_else(|| StatusCode::NOT_FOUND)?
-        .clone();
-    drop(commands);
+    // Fetch command fresh from database
+    let db = state.database.lock().await;
+    let cmd_config = db.get_command(&req.id)
+        .ok_or(StatusCode::NOT_FOUND)?;
+    drop(db);
 
     // Execute the command using the system_commands module
     let result = system_commands::execute_command(&cmd_config);
@@ -215,8 +217,8 @@ async fn execute_handler(
 }
 
 pub struct ServerState {
-    pub settings: Arc<tokio::sync::Mutex<Settings>>,
-    pub commands: Arc<tokio::sync::Mutex<Commands>>,
+    pub settings: Arc<Mutex<Settings>>,
+    pub database: SharedDatabase,
     pub mobile_dist_path: Option<String>,
 }
 
@@ -234,14 +236,14 @@ impl ServerHandle {
 
 pub async fn start_server(
     settings: Settings,
-    commands: Commands,
+    database: SharedDatabase,
     mobile_dist_path: Option<String>,
 ) -> Result<ServerHandle, String> {
     let port = settings.port;
     
     let state = ServerState {
-        settings: Arc::new(tokio::sync::Mutex::new(settings)),
-        commands: Arc::new(tokio::sync::Mutex::new(commands)),
+        settings: Arc::new(Mutex::new(settings)),
+        database,
         mobile_dist_path: mobile_dist_path.clone(),
     };
 
