@@ -5,7 +5,7 @@ on:
     branches:
       - main
     tags:
-      - 'v*'
+      - "v*"
   pull_request:
     branches:
       - main
@@ -24,7 +24,7 @@ jobs:
           - platform: macos-latest
             args: --target x86_64-apple-darwin
           - platform: windows-latest
-            args: ''
+            args: ""
 
     runs-on: ${{ matrix.platform }}
 
@@ -41,18 +41,23 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'pnpm'
+          cache: "pnpm"
 
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
 
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: "./src-tauri -> target"
+          cache-targets: true
+          cache-on-failure: true
+          shared-key: ${{ matrix.platform }}-${{ matrix.args }}
+
       - name: Install frontend dependencies
         run: pnpm install
-
-      - name: Generate icons
-        run: pnpm tauri icon src-tauri/icons/icon.png
 
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0
@@ -93,4 +98,3 @@ jobs:
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-

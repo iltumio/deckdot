@@ -1,20 +1,21 @@
 #[cfg(target_os = "windows")]
 pub fn focus_window_by_title(title: &str) -> Result<(), String> {
-    use windows::Win32::Foundation::HWND;
     use windows::Win32::UI::WindowsAndMessaging::{FindWindowA, SetForegroundWindow, ShowWindow, SW_RESTORE};
+    use windows::core::PCSTR;
     use std::ffi::CString;
 
     let title_cstr = CString::new(title)
         .map_err(|e| format!("Invalid window title: {}", e))?;
 
     unsafe {
-        let hwnd = FindWindowA(None, Some(&title_cstr));
+        let hwnd = FindWindowA(PCSTR::null(), PCSTR(title_cstr.as_ptr() as *const u8))
+            .map_err(|e| format!("Failed to find window: {:?}", e))?;
         
-        if hwnd.0 == 0 {
+        if hwnd.0.is_null() {
             return Err(format!("Window with title '{}' not found", title));
         }
 
-        ShowWindow(hwnd, SW_RESTORE);
+        let _ = ShowWindow(hwnd, SW_RESTORE);
         SetForegroundWindow(hwnd)
             .ok()
             .map_err(|e| format!("Failed to set foreground window: {:?}", e))?;
